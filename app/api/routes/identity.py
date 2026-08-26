@@ -3,6 +3,10 @@ from fastapi import APIRouter
 from app.core.auth import CurrentPrincipal
 
 router = APIRouter(tags=["identity"])
+# APIRouter lets you organize related endpoints into a separate module.
+# This creates a router for identity-related routes.
+
+# The tags=["identity"] is mainly useful for FastAPI's automatic API documentation.
 
 
 @router.get("/me")

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.middleware import trace_and_size_middleware
+from app.api.routes.documents import router as document_router
 from app.api.routes.health import router as health_router
 from app.api.routes.identity import router as identity_router
 from app.core.config import get_settings
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     app.middleware("http")(trace_and_size_middleware)
     app.include_router(health_router)
     app.include_router(identity_router, prefix="/api/v1")
+    app.include_router(document_router, prefix="/api/v1")
     return app
 
 

@@ -13,3 +13,7 @@ reports/
 .coverage
 *.log
 .DS_Store
+data/
+**/IMPLEMENTATION.md
+**/PLAN.md
+**/Prompt.md

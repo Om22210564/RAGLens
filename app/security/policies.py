@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+# StrEnum is an enum whose values are also strings.
+
 
 class PolicyAction(StrEnum):
     ALLOW = "allow"

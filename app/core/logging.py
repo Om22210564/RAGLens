@@ -14,5 +14,9 @@ def configure_logging(level: str) -> None:
     logging.basicConfig(
         level=level.upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
+        force=True,  # Replace the existing logging configuration with this configuration.
     )
+
+
+# `level.upper()` produces standard logging levels such as `DEBUG` and `INFO`.
+# The logging module expects those level names in uppercase.

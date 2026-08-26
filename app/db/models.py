@@ -9,12 +9,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
+# Each Python class in this file represents a database table,
+# and each mapped_column(...) represents a column in that table.
+
 
 class DocumentState(StrEnum):
     QUEUED = "queued"
     PROCESSING = "processing"
     READY = "ready"
     FAILED = "failed"
+    QUARANTINED = "quarantined"
 
 
 class JobState(StrEnum):
@@ -100,7 +104,7 @@ class Chunk(TimestampedModel, Base):
     section: Mapped[str | None] = mapped_column(String(512))
     token_count: Mapped[int] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(128), nullable=True)
 
 
 class IngestionJob(TimestampedModel, Base):

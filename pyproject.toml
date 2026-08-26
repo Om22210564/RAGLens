@@ -10,7 +10,9 @@ dependencies = [
   "dramatiq[redis]>=1.17,<2",
   "fastapi>=0.115,<1",
   "pgvector>=0.3,<1",
+  "pypdf>=5.0,<6",
   "psycopg[binary]>=3.2,<4",
+  "python-multipart>=0.0.18,<1",
   "pydantic-settings>=2.6,<3",
   "sqlalchemy>=2.0,<3",
   "uvicorn[standard]>=0.32,<1",
@@ -55,3 +57,7 @@ python_version = "3.12"
 strict = true
 plugins = []
 exclude = ["alembic"]
+
+[[tool.mypy.overrides]]
+module = ["pypdf"]
+ignore_missing_imports = true

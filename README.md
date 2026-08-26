@@ -22,6 +22,10 @@ uv run uvicorn app.main:app --reload
 
 The API is then available at `http://localhost:8000`.
 
+The default host ports are PostgreSQL `5434` and Redis `6381`, avoiding common
+conflicts with local services. Change both the corresponding `*_HOST_PORT` and
+the host URL in `.env` if you need different ports.
+
 ## Docker Compose commands
 
 Start all services:
@@ -96,6 +100,13 @@ Validate that ORM models and migrations are aligned:
 uv run alembic check
 ```
 
+After pulling a Phase 1 update, apply the latest document-ingestion migration:
+
+```bash
+uv sync
+uv run alembic upgrade head
+```
+
 Open a PostgreSQL shell in the Compose database:
 
 ```bash
@@ -131,3 +142,28 @@ curl http://localhost:8000/api/v1/me \
 
 This header-based adapter is for local development only and will be replaced by
 validated bearer-token authentication before production use.
+
+## Upload a document
+
+Start the worker in a second terminal so queued ingestion jobs are processed:
+
+```bash
+uv run dramatiq app.workers.ingestion
+```
+
+Then upload a supported TXT, Markdown, HTML, or PDF file:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents \
+  -H 'X-User-Id: user-demo' \
+  -H 'X-Tenant-Id: tenant-demo' \
+  -F 'file=@./example.md;type=text/markdown'
+```
+
+The response returns a `document_id` and `ingestion_job_id`. Check its state:
+
+```bash
+curl http://localhost:8000/api/v1/documents/DOCUMENT_ID \
+  -H 'X-User-Id: user-demo' \
+  -H 'X-Tenant-Id: tenant-demo'
+```
