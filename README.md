@@ -232,3 +232,35 @@ uv run python -m app.evaluation score \
 ```
 
 The report contains Recall@K, Precision@K, Hit Rate@K, MRR, and nDCG@K.
+
+## Real embeddings and Groq generation
+
+The default local-development fallback is hash embeddings plus extractive
+generation. To use semantic embeddings and Groq, add the following to your
+local `.env` (the key must never be committed):
+
+```env
+APP_EMBEDDING_PROVIDER=sentence_transformer
+APP_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+APP_LLM_PROVIDER=groq
+APP_GROQ_MODEL=openai/gpt-oss-20b
+GROQ_API_KEY=your_groq_api_key
+```
+
+`all-MiniLM-L6-v2` generates 384-dimensional vectors. The first run downloads
+the model to the local Hugging Face cache. The Groq adapter uses a strict
+grounded prompt and validates every returned citation ID against the supplied
+context.
+
+For an existing database, the migration below clears only old 128-dimensional
+embeddings; it does **not** delete documents or chunks. Rebuild vectors
+immediately afterward:
+
+```bash
+uv sync
+uv run alembic upgrade head
+uv run python -m app.ingestion.reindex
+```
+
+Restart the API and worker after changing provider settings. New ingestion jobs
+will then use semantic embeddings, and queries will use Groq for generation.

@@ -63,9 +63,16 @@ class DeterministicSecurityScanner:
     )
     _secret_patterns = (
         ("SEC-001", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
-        ("SEC-002", re.compile(r"\b(?:bearer\s+)?[A-Za-z0-9_-]{32,}\b", re.I)),
-        ("SEC-003", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
-        ("SEC-004", re.compile(r"\b(?:password|api[_-]?key|secret)\s*[:=]\s*\S+", re.I)),
+        ("SEC-002", re.compile(r"\bgsk_[A-Za-z0-9_-]{16,}\b")),
+        ("SEC-003", re.compile(r"\b(?:bearer\s+)?[A-Za-z0-9_-]{32,}\b", re.I)),
+        ("SEC-004", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
+        (
+            "SEC-005",
+            re.compile(
+                r"\b(?:password|api\s*[_-]?\s*key|secret)\s*(?:is|:|=)\s*\S+",
+                re.I,
+            ),
+        ),
     )
 
     def scan(self, text: str, stage: SecurityStage) -> ScanResult:

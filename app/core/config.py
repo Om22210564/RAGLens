@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 
 # Dsn Data Source Name validation for structure of database and redis urls
-from pydantic import PostgresDsn, RedisDsn
+from pydantic import AliasChoices, Field, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     retrieval_candidate_count: int = 30
     retrieval_top_k: int = 8
     context_token_budget: int = 2_500
+    embedding_provider: str = "hash"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    llm_provider: str = "extractive"
+    groq_model: str = "openai/gpt-oss-20b"
+    groq_api_key: str | None = Field(
+        default=None, validation_alias=AliasChoices("GROQ_API_KEY", "APP_GROQ_API_KEY")
+    )
     dev_auth_enabled: bool = True
 
 

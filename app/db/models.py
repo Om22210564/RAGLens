@@ -104,7 +104,7 @@ class Chunk(TimestampedModel, Base):
     section: Mapped[str | None] = mapped_column(String(512))
     token_count: Mapped[int] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(128), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
 
 
 class IngestionJob(TimestampedModel, Base):

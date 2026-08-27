@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import Chunk, Document, DocumentState, IngestionJob, JobState
 from app.db.repositories import AccessScope
-from app.embeddings.providers import HashEmbeddingProvider
+from app.embeddings.providers import create_embedding_provider
 from app.ingestion.chunking import chunk_document
 from app.ingestion.parsers import parse_document
 from app.ingestion.storage import LocalBlobStorage
@@ -20,7 +20,9 @@ class IngestionService:
         self.session = session
         self.settings = settings
         self.storage = LocalBlobStorage(settings.storage_directory)
-        self.embedding_provider = HashEmbeddingProvider()
+        self.embedding_provider = create_embedding_provider(
+            settings.embedding_provider, settings.embedding_model
+        )
 
     async def submit(
         self, scope: AccessScope, upload: ValidatedUpload

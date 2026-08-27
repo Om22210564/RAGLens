@@ -11,6 +11,7 @@ from app.core.errors import PolicyBlocked
 from app.core.tracing import trace_id_var
 from app.db.repositories import resolve_development_scope
 from app.db.session import get_session
+from app.generation.providers import GenerationProviderError
 from app.observability.tracing import TraceRecorder
 from app.query.service import QueryService
 from app.security.policies import DeterministicSecurityScanner, PolicyAction, SecurityStage
@@ -60,18 +61,27 @@ async def ask_question(
     trace_key = trace_id_var.get() or "unknown"
     recorder = TraceRecorder(session, scope, trace_key)
     await recorder.start()
-    result = await QueryService(session, settings).ask(
-        scope,
-        payload.query,
-        payload.top_k,
-        payload.document_ids,
-        transform=payload.transform,
-        rerank=payload.rerank,
-    )
+    try:
+        result = await QueryService(session, settings).ask(
+            scope,
+            payload.query,
+            payload.top_k,
+            payload.document_ids,
+            transform=payload.transform,
+            rerank=payload.rerank,
+        )
+    except GenerationProviderError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Generation provider unavailable"
+        ) from exc
     recorder.retrieval_event("dense", len(result.retrieval.dense))
     recorder.retrieval_event("sparse", len(result.retrieval.sparse))
     recorder.retrieval_event("fusion", len(result.retrieval.fused))
-    recorder.security_events(result.security_events)
+    all_security_events = (
+        (input_scan,) if input_scan.decision.action is not PolicyAction.ALLOW else ()
+    ) + result.security_events
+    recorder.security_events(all_security_events)
     recorder.finish("answered" if result.answerable else "insufficient")
     await session.commit()
     citations = [
@@ -99,15 +109,25 @@ async def ask_question(
             "context_chunks": len(result.context),
         },
         security={
-            "action": "warn" if result.security_events else input_scan.decision.action,
+            "action": (
+                input_scan.decision.action
+                if input_scan.decision.action is not PolicyAction.ALLOW
+                else "warn"
+                if any(
+                    event.decision.action is not PolicyAction.ALLOW
+                    for event in result.security_events
+                )
+                else PolicyAction.ALLOW
+            ),
             "events": [
                 {
-                    "stage": "context_or_output",
+                    "stage": ("input" if event is input_scan else "context_or_output"),
                     "risk": event.decision.risk,
                     "categories": event.decision.categories,
                     "action": event.decision.action,
                 }
-                for event in result.security_events
+                for event in all_security_events
+                if event.decision.action is not PolicyAction.ALLOW
             ],
         },
         rewritten_queries=list(result.rewritten_queries),

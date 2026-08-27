@@ -1,7 +1,7 @@
 import hashlib
 import math
 import re
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 
 class EmbeddingProvider(Protocol):
@@ -17,7 +17,7 @@ class HashEmbeddingProvider:
     through the same interface with a sentence-transformer provider for quality.
     """
 
-    def __init__(self, dimensions: int = 128) -> None:
+    def __init__(self, dimensions: int = 384) -> None:
         if dimensions <= 0:
             raise ValueError("Embedding dimensions must be positive")
         self.dimensions = dimensions
@@ -37,3 +37,35 @@ class HashEmbeddingProvider:
             vector[index] += sign
         norm = math.sqrt(sum(value * value for value in vector))
         return vector if norm == 0 else [value / norm for value in vector]
+
+
+class SentenceTransformerEmbeddingProvider:
+    """Local semantic embeddings, loaded lazily to keep unit tests offline."""
+
+    def __init__(self, model_name: str) -> None:
+        self.model_name = model_name
+        self._model: Any | None = None
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        model = self._load_model()
+        vectors = model.encode_document(texts, normalize_embeddings=True)
+        return [cast(list[float], vector.tolist()) for vector in vectors]
+
+    def embed_query(self, text: str) -> list[float]:
+        model = self._load_model()
+        return cast(list[float], model.encode_query([text], normalize_embeddings=True)[0].tolist())
+
+    def _load_model(self) -> Any:
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
+            self._model = SentenceTransformer(self.model_name)
+        return self._model
+
+
+def create_embedding_provider(provider: str, model_name: str) -> EmbeddingProvider:
+    if provider == "sentence_transformer":
+        return SentenceTransformerEmbeddingProvider(model_name)
+    if provider == "hash":
+        return HashEmbeddingProvider()
+    raise ValueError(f"Unsupported embedding provider: {provider}")

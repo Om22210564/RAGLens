@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Chunk, Document, DocumentState
 from app.db.repositories import AccessScope
-from app.embeddings.providers import EmbeddingProvider, HashEmbeddingProvider
+from app.embeddings.providers import EmbeddingProvider
 from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.types import RetrievalResult, RetrievedChunk
 
@@ -18,7 +18,7 @@ class HybridRetriever:
         embedding_provider: EmbeddingProvider | None = None,
     ) -> None:
         self.session = session
-        self.embedding_provider = embedding_provider or HashEmbeddingProvider()
+        self.embedding_provider = embedding_provider
 
     async def search(
         self,
@@ -60,6 +60,8 @@ class HybridRetriever:
     async def _dense(
         self, scope: AccessScope, query: str, limit: int, document_ids: Sequence[UUID]
     ) -> list[RetrievedChunk]:
+        if self.embedding_provider is None:
+            raise RuntimeError("An embedding provider is required for dense retrieval")
         embedding = self.embedding_provider.embed_query(query)
         distance = Chunk.embedding.cosine_distance(embedding)
         statement = (

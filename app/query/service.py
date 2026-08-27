@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.db.repositories import AccessScope
+from app.embeddings.providers import create_embedding_provider
 from app.generation.context import ContextItem, build_context
-from app.generation.providers import ExtractiveGroundedProvider, LLMProvider
+from app.generation.providers import LLMProvider, create_llm_provider
 from app.query.transforms import QueryRouter
 from app.reranking.providers import LexicalOverlapReranker, Reranker
 from app.retrieval.fusion import reciprocal_rank_fusion
@@ -37,8 +38,11 @@ class QueryService:
         reranker: Reranker | None = None,
     ) -> None:
         self.settings = settings
-        self.retriever = HybridRetriever(session)
-        self.llm = llm or ExtractiveGroundedProvider()
+        self.retriever = HybridRetriever(
+            session,
+            create_embedding_provider(settings.embedding_provider, settings.embedding_model),
+        )
+        self.llm = llm or create_llm_provider(settings)
         self.scanner = DeterministicSecurityScanner()
         self.router = QueryRouter()
         self.reranker = reranker or LexicalOverlapReranker()

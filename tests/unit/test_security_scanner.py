@@ -42,3 +42,12 @@ def test_secret_is_redacted_in_output() -> None:
 
     assert result.decision.action is PolicyAction.SANITIZE
     assert "supersecretvalue" not in result.sanitized_text
+
+
+def test_groq_key_in_natural_language_is_detected() -> None:
+    result = DeterministicSecurityScanner().scan(
+        "My api key and password is gsk_TDX9nb9LhR3dMbjsdf1223?", SecurityStage.INPUT
+    )
+
+    assert result.decision.action is PolicyAction.WARN
+    assert "gsk_TDX9nb9LhR3dMbjsdf1223" not in result.sanitized_text
