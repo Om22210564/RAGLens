@@ -11,6 +11,7 @@ from app.core.errors import PolicyBlocked
 from app.core.tracing import trace_id_var
 from app.db.repositories import resolve_development_scope
 from app.db.session import get_session
+from app.observability.tracing import TraceRecorder
 from app.query.service import QueryService
 from app.security.policies import DeterministicSecurityScanner, PolicyAction, SecurityStage
 
@@ -56,6 +57,9 @@ async def ask_question(
     if input_scan.decision.action is PolicyAction.BLOCK:
         raise PolicyBlocked()
     scope = await resolve_development_scope(session, principal)
+    trace_key = trace_id_var.get() or "unknown"
+    recorder = TraceRecorder(session, scope, trace_key)
+    await recorder.start()
     result = await QueryService(session, settings).ask(
         scope,
         payload.query,
@@ -64,6 +68,11 @@ async def ask_question(
         transform=payload.transform,
         rerank=payload.rerank,
     )
+    recorder.retrieval_event("dense", len(result.retrieval.dense))
+    recorder.retrieval_event("sparse", len(result.retrieval.sparse))
+    recorder.retrieval_event("fusion", len(result.retrieval.fused))
+    recorder.security_events(result.security_events)
+    recorder.finish("answered" if result.answerable else "insufficient")
     await session.commit()
     citations = [
         Citation(
@@ -77,7 +86,7 @@ async def ask_question(
         for item in result.context
     ]
     return QueryResponse(
-        trace_id=trace_id_var.get() or "",
+        trace_id=trace_key,
         answer=result.answer,
         answerability={
             "status": "answerable" if result.answerable else "insufficient",

@@ -124,6 +124,7 @@ class RagTrace(TimestampedModel, Base):
     __tablename__ = "rag_traces"
     __table_args__ = (Index("ix_rag_traces_tenant_created", "tenant_id", "created_at"),)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trace_key: Mapped[str] = mapped_column(String(40), unique=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     route: Mapped[str] = mapped_column(String(255))

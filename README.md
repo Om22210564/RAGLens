@@ -201,3 +201,34 @@ cross-encoder or external reranking provider later.
 The initial generator is an extractive, local baseline. It only returns text
 from retrieved evidence and citations; a provider-backed LLM adapter can be
 configured in a later phase without changing the API.
+
+## Traces and evaluation
+
+Apply the Phase 5 trace migration before using the query endpoint:
+
+```bash
+uv run alembic upgrade head
+```
+
+Every successful query response includes a `trace_id`. Retrieve its sanitized,
+tenant- and owner-scoped inspection record with:
+
+```bash
+curl http://localhost:8000/api/v1/traces/TRACE_ID \
+  -H 'X-User-Id: user-demo' \
+  -H 'X-Tenant-Id: tenant-demo'
+```
+
+The offline evaluation CLI scores JSONL retrieval output. Dataset rows need an
+`id` and `relevant_chunk_ids`; result rows need the matching `id` and
+`retrieved_chunk_ids`.
+
+```bash
+uv run python -m app.evaluation score \
+  --dataset datasets/rag_eval.jsonl \
+  --results reports/retrieval_results.jsonl \
+  --k 5 \
+  --output reports/evaluation.json
+```
+
+The report contains Recall@K, Precision@K, Hit Rate@K, MRR, and nDCG@K.
