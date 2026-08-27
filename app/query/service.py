@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -64,7 +65,7 @@ class QueryService:
             candidates = self.reranker.rerank(query, candidates)
         safe_chunks, context_events = filter_untrusted_context(candidates[:top_k], self.scanner)
         context = build_context(safe_chunks, self.settings.context_token_budget)
-        if not context:
+        if not context or not self._has_substantive_evidence(context):
             return AnswerResult(
                 answer=(
                     "I could not find enough evidence in the available documents "
@@ -107,3 +108,13 @@ class QueryService:
         sparse = reciprocal_rank_fusion([result.sparse for result in retrievals])
         fused = reciprocal_rank_fusion([result.fused for result in retrievals])
         return RetrievalResult(tuple(dense), tuple(sparse), tuple(fused))
+
+    def _has_substantive_evidence(self, context: list[ContextItem]) -> bool:
+        """Reject command-only matches from the local lexical/hash baselines."""
+        command_markers = ("curl ", "docker compose", "uv run ", " -h '", " -d '")
+        for item in context:
+            text = item.chunk.text.lower()
+            words = re.findall(r"[a-z]{3,}", text)
+            if len(words) >= 10 and not any(marker in text for marker in command_markers):
+                return True
+        return False

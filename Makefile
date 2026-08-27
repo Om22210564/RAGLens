@@ -1,4 +1,4 @@
-.PHONY: format lint type-check test test-unit test-integration test-security migration-check
+.PHONY: format lint type-check test test-unit test-integration test-security eval migration-check
 
 format:
 	uv run ruff format app tests
@@ -20,6 +20,9 @@ test-integration:
 
 test-security:
 	uv run pytest -m security
+
+eval:
+	uv run python -m app.evaluation score --dataset $(DATASET) --results $(RESULTS) --output $(OUTPUT)
 
 migration-check:
 	uv run alembic check
