@@ -9,6 +9,8 @@ from app.generation.context import ContextItem, build_context
 from app.generation.providers import ExtractiveGroundedProvider, LLMProvider
 from app.retrieval.service import HybridRetriever
 from app.retrieval.types import RetrievalResult
+from app.security.context import filter_untrusted_context
+from app.security.policies import DeterministicSecurityScanner, ScanResult, SecurityStage
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +20,7 @@ class AnswerResult:
     confidence: float
     context: tuple[ContextItem, ...]
     retrieval: RetrievalResult
+    security_events: tuple[ScanResult, ...]
 
 
 class QueryService:
@@ -27,6 +30,7 @@ class QueryService:
         self.settings = settings
         self.retriever = HybridRetriever(session)
         self.llm = llm or ExtractiveGroundedProvider()
+        self.scanner = DeterministicSecurityScanner()
 
     async def ask(
         self, scope: AccessScope, query: str, top_k: int, document_ids: list[UUID]
@@ -34,7 +38,10 @@ class QueryService:
         retrieval = await self.retriever.search(
             scope, query, self.settings.retrieval_candidate_count, document_ids
         )
-        context = build_context(list(retrieval.fused[:top_k]), self.settings.context_token_budget)
+        safe_chunks, context_events = filter_untrusted_context(
+            list(retrieval.fused[:top_k]), self.scanner
+        )
+        context = build_context(safe_chunks, self.settings.context_token_budget)
         if not context:
             return AnswerResult(
                 answer=(
@@ -45,13 +52,25 @@ class QueryService:
                 confidence=0.0,
                 context=(),
                 retrieval=retrieval,
+                security_events=tuple(context_events),
             )
         generated = await self.llm.generate(query, context)
+        output_scan = self.scanner.scan(generated.answer, SecurityStage.OUTPUT)
+        if output_scan.decision.action.value == "block":
+            return AnswerResult(
+                answer="I cannot provide that response.",
+                answerable=False,
+                confidence=0.0,
+                context=(),
+                retrieval=retrieval,
+                security_events=tuple(context_events + [output_scan]),
+            )
         cited = tuple(item for item in context if item.citation_id in generated.cited_ids)
         return AnswerResult(
-            answer=generated.answer,
+            answer=output_scan.sanitized_text,
             answerable=True,
             confidence=min(0.95, 0.5 + len(cited) * 0.1),
             context=cited,
             retrieval=retrieval,
+            security_events=tuple(context_events + [output_scan]),
         )

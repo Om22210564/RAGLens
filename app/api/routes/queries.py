@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import CurrentPrincipal
 from app.core.config import Settings, get_settings
+from app.core.errors import PolicyBlocked
 from app.core.tracing import trace_id_var
 from app.db.repositories import resolve_development_scope
 from app.db.session import get_session
 from app.query.service import QueryService
+from app.security.policies import DeterministicSecurityScanner, PolicyAction, SecurityStage
 
 router = APIRouter(prefix="/queries", tags=["queries"])
 Session = Annotated[AsyncSession, Depends(get_session)]
@@ -38,6 +40,7 @@ class QueryResponse(BaseModel):
     answerability: dict[str, object]
     citations: list[Citation]
     usage: dict[str, int]
+    security: dict[str, object]
 
 
 @router.post("", response_model=QueryResponse)
@@ -46,6 +49,9 @@ async def ask_question(
 ) -> QueryResponse:
     if len(payload.query) > settings.max_query_characters:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Query exceeds size limit")
+    input_scan = DeterministicSecurityScanner().scan(payload.query, SecurityStage.INPUT)
+    if input_scan.decision.action is PolicyAction.BLOCK:
+        raise PolicyBlocked()
     scope = await resolve_development_scope(session, principal)
     result = await QueryService(session, settings).ask(
         scope, payload.query, payload.top_k, payload.document_ids
@@ -74,5 +80,17 @@ async def ask_question(
             "dense_candidates": len(result.retrieval.dense),
             "sparse_candidates": len(result.retrieval.sparse),
             "context_chunks": len(result.context),
+        },
+        security={
+            "action": "warn" if result.security_events else input_scan.decision.action,
+            "events": [
+                {
+                    "stage": "context_or_output",
+                    "risk": event.decision.risk,
+                    "categories": event.decision.categories,
+                    "action": event.decision.action,
+                }
+                for event in result.security_events
+            ],
         },
     )

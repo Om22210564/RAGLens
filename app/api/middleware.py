@@ -10,6 +10,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.core.config import Settings
 from app.core.tracing import new_trace_id, trace_id_var
+from app.security.rate_limits import InMemoryRateLimiter
 
 
 async def trace_and_size_middleware(
@@ -18,6 +19,13 @@ async def trace_and_size_middleware(
     # A callable that takes a Request and returns an Awaitable that produces a Response.
     # "Continue processing this request and eventually call the appropriate API endpoint."
     settings: Settings = request.app.state.settings
+    limiter: InMemoryRateLimiter = request.app.state.rate_limiter
+    endpoint_limit = {"/api/v1/documents": 10, "/api/v1/queries": 30}.get(request.url.path)
+    if endpoint_limit is not None:
+        client_ip = request.client.host if request.client else "unknown"
+        user_id = request.headers.get("X-User-Id", "anonymous")
+        if not limiter.allowed(f"{request.url.path}:{client_ip}:{user_id}", endpoint_limit):
+            return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
     content_length = request.headers.get("content-length")
     if content_length is not None:
         try:

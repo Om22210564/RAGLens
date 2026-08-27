@@ -1,7 +1,6 @@
+import re
 from dataclasses import dataclass
 from enum import StrEnum
-
-# StrEnum is an enum whose values are also strings.
 
 
 class PolicyAction(StrEnum):
@@ -17,6 +16,12 @@ class RiskLevel(StrEnum):
     HIGH = "high"
 
 
+class SecurityStage(StrEnum):
+    INPUT = "input"
+    CONTEXT = "context"
+    OUTPUT = "output"
+
+
 @dataclass(frozen=True, slots=True)
 class SecurityDecision:
     risk: RiskLevel
@@ -25,8 +30,84 @@ class SecurityDecision:
     rule_ids: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ScanResult:
+    decision: SecurityDecision
+    sanitized_text: str
+
+
+class DeterministicSecurityScanner:
+    """Pattern and heuristic baseline; classifier adapters may add evidence later."""
+
+    _injection_patterns = (
+        (
+            "PI-001",
+            "prompt_injection",
+            re.compile(r"\bignore (all |any |the )?(previous|prior) instructions?\b", re.I),
+        ),
+        (
+            "PI-002",
+            "system_prompt_extraction",
+            re.compile(r"\b(reveal|show|repeat).{0,40}\b(system|developer) prompt\b", re.I),
+        ),
+        (
+            "PI-003",
+            "instruction_override",
+            re.compile(r"\bpretend.{0,40}\b(developer|system)\b", re.I),
+        ),
+        (
+            "PI-004",
+            "tool_instruction",
+            re.compile(r"\b(execute|run|call) (this )?(command|tool)\b", re.I),
+        ),
+    )
+    _secret_patterns = (
+        ("SEC-001", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
+        ("SEC-002", re.compile(r"\b(?:bearer\s+)?[A-Za-z0-9_-]{32,}\b", re.I)),
+        ("SEC-003", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
+        ("SEC-004", re.compile(r"\b(?:password|api[_-]?key|secret)\s*[:=]\s*\S+", re.I)),
+    )
+
+    def scan(self, text: str, stage: SecurityStage) -> ScanResult:
+        categories: list[str] = []
+        rule_ids: list[str] = []
+        for rule_id, category, pattern in self._injection_patterns:
+            if pattern.search(text):
+                categories.append(category)
+                rule_ids.append(rule_id)
+
+        sanitized = text
+        secret_found = False
+        for rule_id, pattern in self._secret_patterns:
+            if pattern.search(sanitized):
+                secret_found = True
+                rule_ids.append(rule_id)
+                sanitized = pattern.sub("[REDACTED_SECRET]", sanitized)
+        if secret_found:
+            categories.append("sensitive_information")
+
+        if any(category != "sensitive_information" for category in categories):
+            return ScanResult(
+                SecurityDecision(
+                    RiskLevel.HIGH, tuple(categories), PolicyAction.BLOCK, tuple(rule_ids)
+                ),
+                sanitized,
+            )
+        if secret_found:
+            action = (
+                PolicyAction.SANITIZE
+                if stage in {SecurityStage.CONTEXT, SecurityStage.OUTPUT}
+                else PolicyAction.WARN
+            )
+            return ScanResult(
+                SecurityDecision(RiskLevel.MEDIUM, tuple(categories), action, tuple(rule_ids)),
+                sanitized,
+            )
+        return ScanResult(SecurityDecision(RiskLevel.LOW, (), PolicyAction.ALLOW), text)
+
+
 class PolicyEngine:
-    """Single policy seam; scanner implementations are added in Phase 3."""
+    """Compatibility seam for future tenant-specific policy configuration."""
 
     def allow(self) -> SecurityDecision:
         return SecurityDecision(RiskLevel.LOW, (), PolicyAction.ALLOW)

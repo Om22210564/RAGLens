@@ -20,4 +20,6 @@ class RetrievalResult:
     dense: tuple[RetrievedChunk, ...]
     sparse: tuple[RetrievedChunk, ...]
     fused: tuple[RetrievedChunk, ...]
+
+
 # which retrieval method(s) contributed this chunk.

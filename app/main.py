@@ -10,12 +10,14 @@ from app.api.routes.identity import router as identity_router
 from app.api.routes.queries import router as query_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.security.rate_limits import InMemoryRateLimiter
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     app.state.settings = settings
+    app.state.rate_limiter = InMemoryRateLimiter()
     configure_logging(settings.log_level)
     yield
 
