@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     storage_directory: Path = Path("data/uploads")
     chunk_target_tokens: int = 500
     chunk_overlap_tokens: int = 75
+    max_query_characters: int = 4_000
+    retrieval_candidate_count: int = 30
+    retrieval_top_k: int = 8
+    context_token_budget: int = 2_500
     dev_auth_enabled: bool = True
 
 

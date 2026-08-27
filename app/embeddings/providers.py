@@ -7,6 +7,8 @@ from typing import Protocol
 class EmbeddingProvider(Protocol):
     def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
 
+    def embed_query(self, text: str) -> list[float]: ...
+
 
 class HashEmbeddingProvider:
     """Deterministic local baseline with no model download or external API.
@@ -22,6 +24,9 @@ class HashEmbeddingProvider:
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
 
     def _embed(self, text: str) -> list[float]:
         vector = [0.0] * self.dimensions

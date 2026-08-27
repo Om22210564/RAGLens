@@ -167,3 +167,21 @@ curl http://localhost:8000/api/v1/documents/DOCUMENT_ID \
   -H 'X-User-Id: user-demo' \
   -H 'X-Tenant-Id: tenant-demo'
 ```
+
+## Ask a grounded question
+
+Once the document state is `ready`, query only the documents available to your
+tenant. The response includes an answerability signal, source citations, and a
+trace ID.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/queries \
+  -H 'Content-Type: application/json' \
+  -H 'X-User-Id: user-demo' \
+  -H 'X-Tenant-Id: tenant-demo' \
+  -d '{"query":"What is this project for?","top_k":5}'
+```
+
+The initial generator is an extractive, local baseline. It only returns text
+from retrieved evidence and citations; a provider-backed LLM adapter can be
+configured in a later phase without changing the API.
