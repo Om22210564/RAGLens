@@ -23,6 +23,8 @@ class QueryRequest(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=8, ge=1, le=20)
     document_ids: list[UUID] = Field(default_factory=list)
+    transform: bool = False
+    rerank: bool = False
 
 
 class Citation(BaseModel):
@@ -41,6 +43,7 @@ class QueryResponse(BaseModel):
     citations: list[Citation]
     usage: dict[str, int]
     security: dict[str, object]
+    rewritten_queries: list[str]
 
 
 @router.post("", response_model=QueryResponse)
@@ -54,7 +57,12 @@ async def ask_question(
         raise PolicyBlocked()
     scope = await resolve_development_scope(session, principal)
     result = await QueryService(session, settings).ask(
-        scope, payload.query, payload.top_k, payload.document_ids
+        scope,
+        payload.query,
+        payload.top_k,
+        payload.document_ids,
+        transform=payload.transform,
+        rerank=payload.rerank,
     )
     await session.commit()
     citations = [
@@ -93,4 +101,5 @@ async def ask_question(
                 for event in result.security_events
             ],
         },
+        rewritten_queries=list(result.rewritten_queries),
     )

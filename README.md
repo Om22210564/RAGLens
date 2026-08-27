@@ -182,6 +182,22 @@ curl -X POST http://localhost:8000/api/v1/queries \
   -d '{"query":"What is this project for?","top_k":5}'
 ```
 
+For complex comparison questions, opt into deterministic decomposition and the
+local reranker. Both run only after tenant-scoped retrieval has applied access
+filters.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/queries \
+  -H 'Content-Type: application/json' \
+  -H 'X-User-Id: user-demo' \
+  -H 'X-Tenant-Id: tenant-demo' \
+  -d '{"query":"Compare dense retrieval and BM25","transform":true,"rerank":true}'
+```
+
+The response includes `rewritten_queries` so transformed retrieval can be
+inspected. The local lexical reranker is a baseline; its interface supports a
+cross-encoder or external reranking provider later.
+
 The initial generator is an extractive, local baseline. It only returns text
 from retrieved evidence and citations; a provider-backed LLM adapter can be
 configured in a later phase without changing the API.
