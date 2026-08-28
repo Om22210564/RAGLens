@@ -1,0 +1,1 @@
+export default function DocumentsPage() { return <section><h1 className="text-2xl font-semibold">Documents</h1><p className="mt-3 text-muted">Document upload and individual status polling are planned for F2. A document library is not available because the API has no document-list endpoint.</p></section>; }

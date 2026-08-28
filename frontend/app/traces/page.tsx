@@ -1,0 +1,1 @@
+export default function TracesPage() { return <section><h1 className="text-2xl font-semibold">Traces</h1><p className="mt-3 text-muted">Individual trace lookup is planned for F6. Trace browsing, search, and filtering need backend endpoints first.</p></section>; }
