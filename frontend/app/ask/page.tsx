@@ -1,1 +1,3 @@
-export default function AskPage() { return <section><h1 className="text-2xl font-semibold">Ask</h1><p className="mt-3 text-muted">The buffered grounded-query experience is planned for F3. Streaming and conversation history are not supported by the API.</p></section>; }
+import { QueryWorkspace } from "@/features/query/query-workspace";
+
+export default function AskPage() { return <QueryWorkspace />; }

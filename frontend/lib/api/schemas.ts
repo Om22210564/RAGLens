@@ -13,3 +13,5 @@ export const queryResponseSchema = z.object({
 export const traceResponseSchema = z.object({ trace_id: z.string(), outcome: z.string(), latency_ms: z.number(), retrieval_events: z.array(z.object({ stage: z.string(), output_count: z.number(), latency_ms: z.number() })), security_events: z.array(z.object({ stage: z.string(), risk: z.string(), action: z.string(), categories: z.array(z.string()) })) });
 
 export type Identity = z.infer<typeof identitySchema>;
+export type QueryRequest = z.infer<typeof queryRequestSchema>;
+export type QueryResponse = z.infer<typeof queryResponseSchema>;

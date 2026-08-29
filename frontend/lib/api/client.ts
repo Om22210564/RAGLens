@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { documentStatusSchema, healthSchema, identitySchema, ingestionAcceptedSchema } from "@/lib/api/schemas";
+import { documentStatusSchema, healthSchema, identitySchema, ingestionAcceptedSchema, queryResponseSchema, type QueryRequest } from "@/lib/api/schemas";
 import { publicConfig } from "@/lib/config/public";
 
 export type ApiError = { status: number; message: string; traceId?: string; retryable: boolean; fieldErrors?: Record<string, string> };
 const mockIdentity = { user_id: "user-demo", tenant_id: "tenant-demo", roles: ["member"] };
+const mockQueryResult = { trace_id: "tr_mock_result", answer: "This is a deterministic F3 mock response. Start the backend and upload a document to ask a grounded question.", answerability: { status: "insufficient", confidence: 0 }, citations: [], usage: { dense_candidates: 0, sparse_candidates: 0, context_chunks: 0 }, security: { action: "allow", events: [] }, rewritten_queries: [] };
 
 export function normalizeApiError(response: Response, body: unknown): ApiError {
   const detail = typeof body === "object" && body !== null && "detail" in body ? (body as { detail: unknown }).detail : undefined;
@@ -30,5 +31,8 @@ export const api = {
     : request("/api/v1/documents", ingestionAcceptedSchema, { method: "POST", body: (() => { const form = new FormData(); form.append("file", file); return form; })() }),
   document: (documentId: string) => publicConfig.useApiMocks
     ? Promise.resolve({ id: documentId, filename: "example.md", mime_type: "text/markdown", state: "ready", ingestion_job_id: "00000000-0000-4000-8000-000000000002", ingestion_status: "ready" })
-    : request(`/api/v1/documents/${encodeURIComponent(documentId)}`, documentStatusSchema)
+    : request(`/api/v1/documents/${encodeURIComponent(documentId)}`, documentStatusSchema),
+  ask: (payload: QueryRequest, signal?: AbortSignal) => publicConfig.useApiMocks
+    ? Promise.resolve(mockQueryResult)
+    : request("/api/v1/queries", queryResponseSchema, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal })
 };
