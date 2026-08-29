@@ -16,10 +16,23 @@ export function normalizeApiError(response: Response, body: unknown): ApiError {
 }
 
 async function request<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/backend${path}`, init);
-  const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw normalizeApiError(response, body);
-  return schema.parse(body);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30_000);
+  const forwardAbort = () => controller.abort();
+  init?.signal?.addEventListener("abort", forwardAbort, { once: true });
+  try {
+    const response = await fetch(`/api/backend${path}`, { ...init, signal: controller.signal });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) throw normalizeApiError(response, body);
+    return schema.parse(body);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (typeof error === "object" && error !== null && "status" in error) throw error;
+    throw { status: 0, message: "Unable to reach the API. Check your development connection and retry.", retryable: true } satisfies ApiError;
+  } finally {
+    window.clearTimeout(timeout);
+    init?.signal?.removeEventListener("abort", forwardAbort);
+  }
 }
 
 export const api = {
