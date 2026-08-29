@@ -3,7 +3,7 @@ import { ConnectionStatus } from "@/components/connection-status";
 import { IdentityGate } from "@/components/identity-gate";
 import { IdentitySummary } from "@/components/identity-summary";
 
-const navigation = [{ href: "/", label: "Overview" }, { href: "/documents", label: "Documents", planned: "F2" }, { href: "/ask", label: "Ask", planned: "F3" }, { href: "/traces", label: "Traces", planned: "F6" }];
+const navigation = [{ href: "/", label: "Overview" }, { href: "/documents", label: "Documents", planned: "F2" }, { href: "/ask", label: "Ask", planned: "F3" }, { href: "/traces", label: "Traces", planned: "F6" }, { href: "/evaluation", label: "Evaluation", planned: "F7" }];
 
 export function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   return <div className="min-h-screen bg-canvas text-ink">
