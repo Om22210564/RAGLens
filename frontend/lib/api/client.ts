@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { documentStatusSchema, healthSchema, identitySchema, ingestionAcceptedSchema, queryResponseSchema, type QueryRequest } from "@/lib/api/schemas";
+import { documentStatusSchema, healthSchema, identitySchema, ingestionAcceptedSchema, queryResponseSchema, traceResponseSchema, type QueryRequest } from "@/lib/api/schemas";
 import { publicConfig } from "@/lib/config/public";
 
 export type ApiError = { status: number; message: string; traceId?: string; retryable: boolean; fieldErrors?: Record<string, string> };
@@ -34,5 +34,8 @@ export const api = {
     : request(`/api/v1/documents/${encodeURIComponent(documentId)}`, documentStatusSchema),
   ask: (payload: QueryRequest, signal?: AbortSignal) => publicConfig.useApiMocks
     ? Promise.resolve(mockQueryResult)
-    : request("/api/v1/queries", queryResponseSchema, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal })
+    : request("/api/v1/queries", queryResponseSchema, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal }),
+  trace: (traceKey: string) => publicConfig.useApiMocks
+    ? Promise.resolve({ trace_id: traceKey, outcome: "insufficient", latency_ms: 0, retrieval_events: [], security_events: [] })
+    : request(`/api/v1/traces/${encodeURIComponent(traceKey)}`, traceResponseSchema)
 };
