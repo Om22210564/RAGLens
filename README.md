@@ -1,243 +1,102 @@
-# Advanced RAG Platform
+# RAGLens
 
-Secure, multi-tenant Retrieval-Augmented Generation (RAG) platform.
+RAGLens is a secure, multi-tenant Retrieval-Augmented Generation platform with
+an engineering console for building and inspecting grounded AI workflows.
 
-## Prerequisites
+## Features
+
+- **Hybrid retrieval** combining dense semantic search with BM25 sparse search.
+- **Query transformation and reranking** for stronger retrieval on complex questions.
+- **Grounded answers and citations** tied to tenant-scoped document chunks.
+- **Security guardrails** for prompt injection, secrets, unsafe context, and output checks.
+- **Tracing** for retrieval stages, latency, answerability, and security events.
+- **Evaluation** with Recall@K, Precision@K, Hit Rate@K, MRR, and nDCG@K.
+- TXT, Markdown, HTML, and PDF ingestion with background processing.
+- Optional sentence-transformer embeddings and Groq generation.
+
+## Requirements
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
-- Docker and Docker Compose
+- Docker with Docker Compose
+- Node.js 20+
+- pnpm
 
-## First-time setup
-
-Run these commands from the project root:
+## Setup
 
 ```bash
 cp .env.example .env
 uv sync
 docker compose up -d postgres redis
 uv run alembic upgrade head
+```
+
+The configured host ports are PostgreSQL `5434` and Redis `6381`.
+
+Start the backend API:
+
+```bash
 uv run uvicorn app.main:app --reload
 ```
 
-The API is then available at `http://localhost:8000`.
-
-The default host ports are PostgreSQL `5434` and Redis `6381`, avoiding common
-conflicts with local services. Change both the corresponding `*_HOST_PORT` and
-the host URL in `.env` if you need different ports.
-
-## Docker Compose commands
-
-Start all services:
-
-```bash
-docker compose up -d
-```
-
-Start only PostgreSQL and Redis for local API development:
-
-```bash
-docker compose up -d postgres redis
-```
-
-Check service status:
-
-```bash
-docker compose ps
-```
-
-View logs:
-
-```bash
-docker compose logs -f
-docker compose logs -f postgres
-docker compose logs -f api
-docker compose logs -f worker
-```
-
-Stop services while retaining database data:
-
-```bash
-docker compose stop
-```
-
-Stop and remove containers while retaining database data:
-
-```bash
-docker compose down
-```
-
-Remove containers **and the local PostgreSQL volume** (this permanently deletes
-local database data):
-
-```bash
-docker compose down -v
-```
-
-## Database commands
-
-Apply all migrations:
-
-```bash
-uv run alembic upgrade head
-```
-
-Show the current migration revision:
-
-```bash
-uv run alembic current
-```
-
-Show migration history:
-
-```bash
-uv run alembic history
-```
-
-Validate that ORM models and migrations are aligned:
-
-```bash
-uv run alembic check
-```
-
-After pulling a Phase 1 update, apply the latest document-ingestion migration:
-
-```bash
-uv sync
-uv run alembic upgrade head
-```
-
-Open a PostgreSQL shell in the Compose database:
-
-```bash
-docker compose exec postgres psql -U rag -d rag
-```
-
-Useful commands inside `psql`:
-
-```sql
-\dt
-SELECT * FROM alembic_version;
-\q
-```
-
-## Development checks
-
-```bash
-make lint
-make type-check
-make test
-```
-
-## Development authentication
-
-While `APP_DEV_AUTH_ENABLED=true`, protected development endpoints require
-these headers:
-
-```bash
-curl http://localhost:8000/api/v1/me \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo'
-```
-
-This header-based adapter is for local development only and will be replaced by
-validated bearer-token authentication before production use.
-
-## Upload a document
-
-Start the worker in a second terminal so queued ingestion jobs are processed:
+Start the ingestion worker in another terminal:
 
 ```bash
 uv run dramatiq app.workers.ingestion
 ```
 
-Then upload a supported TXT, Markdown, HTML, or PDF file:
+Start the frontend:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/documents \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo' \
-  -F 'file=@./example.md;type=text/markdown'
+cd frontend
+cp .env.example .env.local
+pnpm install
+pnpm dev
 ```
 
-The response returns a `document_id` and `ingestion_job_id`. Check its state:
+- Frontend: `http://localhost:3000`
+- API: `http://localhost:8000`
+- API documentation: `http://localhost:8000/docs`
+
+## Important commands
 
 ```bash
-curl http://localhost:8000/api/v1/documents/DOCUMENT_ID \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo'
-```
+# Infrastructure
+docker compose up -d postgres redis
+docker compose ps
+docker compose logs -f
+docker compose down
 
-## Ask a grounded question
-
-Once the document state is `ready`, query only the documents available to your
-tenant. The response includes an answerability signal, source citations, and a
-trace ID.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/queries \
-  -H 'Content-Type: application/json' \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo' \
-  -d '{"query":"What is this project for?","top_k":5}'
-```
-
-For complex comparison questions, opt into deterministic decomposition and the
-local reranker. Both run only after tenant-scoped retrieval has applied access
-filters.
-
-```bash
-curl -X POST http://localhost:8000/api/v1/queries \
-  -H 'Content-Type: application/json' \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo' \
-  -d '{"query":"Compare dense retrieval and BM25","transform":true,"rerank":true}'
-```
-
-The response includes `rewritten_queries` so transformed retrieval can be
-inspected. The local lexical reranker is a baseline; its interface supports a
-cross-encoder or external reranking provider later.
-
-The initial generator is an extractive, local baseline. It only returns text
-from retrieved evidence and citations; a provider-backed LLM adapter can be
-configured in a later phase without changing the API.
-
-## Traces and evaluation
-
-Apply the Phase 5 trace migration before using the query endpoint:
-
-```bash
+# Database migrations
 uv run alembic upgrade head
+uv run alembic current
+uv run alembic history
+uv run alembic check
+docker compose exec postgres psql -U rag -d rag
+
+# Backend quality checks
+make format
+make lint
+make type-check
+make test
+
+# Frontend quality checks
+cd frontend
+pnpm lint
+pnpm type-check
+pnpm build
 ```
 
-Every successful query response includes a `trace_id`. Retrieve its sanitized,
-tenant- and owner-scoped inspection record with:
+To remove containers and permanently delete the local PostgreSQL volume:
 
 ```bash
-curl http://localhost:8000/api/v1/traces/TRACE_ID \
-  -H 'X-User-Id: user-demo' \
-  -H 'X-Tenant-Id: tenant-demo'
+docker compose down -v
 ```
 
-The offline evaluation CLI scores JSONL retrieval output. Dataset rows need an
-`id` and `relevant_chunk_ids`; result rows need the matching `id` and
-`retrieved_chunk_ids`.
+## Provider configuration
 
-```bash
-uv run python -m app.evaluation score \
-  --dataset datasets/rag_eval.jsonl \
-  --results reports/retrieval_results.jsonl \
-  --k 5 \
-  --output reports/evaluation.json
-```
-
-The report contains Recall@K, Precision@K, Hit Rate@K, MRR, and nDCG@K.
-
-## Real embeddings and Groq generation
-
-The default local-development fallback is hash embeddings plus extractive
-generation. To use semantic embeddings and Groq, add the following to your
-local `.env` (the key must never be committed):
+The default configuration uses sentence-transformer embeddings and Groq. Add a
+valid key to your local `.env`; never commit it.
 
 ```env
 APP_EMBEDDING_PROVIDER=sentence_transformer
@@ -247,20 +106,39 @@ APP_GROQ_MODEL=openai/gpt-oss-20b
 GROQ_API_KEY=your_groq_api_key
 ```
 
-`all-MiniLM-L6-v2` generates 384-dimensional vectors. The first run downloads
-the model to the local Hugging Face cache. The Groq adapter uses a strict
-grounded prompt and validates every returned citation ID against the supplied
-context.
-
-For an existing database, the migration below clears only old 128-dimensional
-embeddings; it does **not** delete documents or chunks. Rebuild vectors
-immediately afterward:
+After changing the embedding model for an existing database, apply migrations
+and rebuild stored embeddings:
 
 ```bash
-uv sync
 uv run alembic upgrade head
 uv run python -m app.ingestion.reindex
 ```
 
-Restart the API and worker after changing provider settings. New ingestion jobs
-will then use semantic embeddings, and queries will use Groq for generation.
+Restart the API and ingestion worker afterward.
+
+## Development authentication
+
+Protected API requests use development headers while
+`APP_DEV_AUTH_ENABLED=true`:
+
+```http
+X-User-Id: user-demo
+X-Tenant-Id: tenant-demo
+```
+
+This header adapter is for local development only.
+
+## Evaluation
+
+Score retrieval results against a JSONL dataset:
+
+```bash
+uv run python -m app.evaluation score \
+  --dataset datasets/rag_eval.jsonl \
+  --results reports/retrieval_results.jsonl \
+  --k 5 \
+  --output reports/evaluation.json
+```
+
+Dataset rows require `id` and `relevant_chunk_ids`; result rows require the
+matching `id` and `retrieved_chunk_ids`.
