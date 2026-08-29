@@ -5,8 +5,8 @@ import { useState } from "react";
 import { CopyValueButton } from "@/components/copy-value-button";
 import { api, type ApiError } from "@/lib/api/client";
 
-export function TraceInspector({ traceId }: Readonly<{ traceId: string }>) {
-  const [open, setOpen] = useState(false);
+export function TraceInspector({ traceId, initiallyOpen = false }: Readonly<{ traceId: string; initiallyOpen?: boolean }>) {
+  const [open, setOpen] = useState(initiallyOpen);
   const trace = useQuery({ queryKey: ["trace", traceId], queryFn: () => api.trace(traceId), enabled: open, retry: 1 });
   return <section className="rounded-lg border border-line bg-panel p-5 shadow-panel"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">RAG inspector</h3><p className="mt-1 text-sm text-muted">Inspect the sanitized summary recorded for this response.</p></div><button className="rounded border border-accent px-3 py-2 text-sm font-medium text-accent hover:bg-slate-50" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>{open ? "Hide inspector" : "Inspect trace"}</button></div>
     {open && <div className="mt-5 border-t border-line pt-5">{trace.isPending && <p className="text-sm text-muted" role="status">Loading trace summary…</p>}{trace.isError && <TraceError error={trace.error as unknown as ApiError} retry={() => void trace.refetch()} />}{trace.data && <TraceDetails trace={trace.data} />}</div>}
