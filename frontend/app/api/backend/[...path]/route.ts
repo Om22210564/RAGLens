@@ -9,7 +9,12 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   headers.delete("host");
   headers.set("X-User-Id", serverConfig.RAG_DEV_USER_ID);
   headers.set("X-Tenant-Id", serverConfig.RAG_DEV_TENANT_ID);
-  const upstream = await fetch(url, { method: request.method, headers, body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body, duplex: "half" });
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, { method: request.method, headers, body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body });
+  } catch {
+    return NextResponse.json({ detail: "Backend API is unavailable" }, { status: 503 });
+  }
   const responseHeaders = new Headers(upstream.headers);
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("content-length");
